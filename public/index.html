@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Robloxusn — Cek Username Roblox</title>
+  <style>
+    :root{--bg:#f7fafc;--card:#ffffff;--text:#0f172a;--muted:#64748b;--primary:#2563eb}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:28px}
+    .card{background:var(--card);width:100%;max-width:560px;padding:24px;border-radius:12px;box-shadow:0 6px 30px rgba(15,23,42,0.08)}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 18px;color:var(--muted)}
+    .row{display:flex;gap:12px}
+    input[type=text]{flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px;font-size:15px;background:transparent}
+    button{padding:12px 14px;border-radius:8px;border:none;background:var(--primary);color:white;font-weight:600;cursor:pointer}
+    button:disabled{opacity:0.6;cursor:not-allowed}
+    .status{margin-top:12px;color:var(--muted);font-size:14px}
+    .result{margin-top:18px;display:flex;gap:16px;align-items:center}
+    .avatar{width:140px;height:140px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #eef2ff}
+    .meta p{margin:6px 0;color:var(--muted)}
+    .error{margin-top:12px;padding:10px;border-radius:8px;background:#fff5f5;color:#c53030;border:1px solid #fed7d7}
+    a.link{color:var(--primary);text-decoration:none}
+    .small{font-size:13px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Robloxusn</h1>
+      <p class="lead">Masukkan username Roblox untuk melihat informasi akun dan avatar (headshot).</p>
+
+      <div class="row">
+        <input id="username" type="text" placeholder="Masukkan username Roblox kamu..." autocapitalize="none" />
+        <button id="checkBtn">Cek Sekarang</button>
+      </div>
+
+      <div id="status" class="status">Masukkan username lalu klik <strong>Cek Sekarang</strong>.</div>
+      <div id="error" class="error" style="display:none"></div>
+
+      <div id="output" style="display:none" class="result">
+        <div class="avatar" id="avatarWrap">
+          <span class="small">Avatar</span>
+        </div>
+        <div class="meta">
+          <p><strong id="displayName">-</strong> <span id="robloxId" class="small">(ID: -)</span></p>
+          <p class="small" id="created">-</p>
+          <p class="small">Profil: <a id="profileLink" class="link" href="#" target="_blank" rel="noopener">Buka di Roblox</a></p>
+          <div style="margin-top:8px">
+            <button id="downloadBtn">Unduh Avatar</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const checkBtn = document.getElementById('checkBtn');
+    const usernameInput = document.getElementById('username');
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+    const output = document.getElementById('output');
+    const displayName = document.getElementById('displayName');
+    const robloxId = document.getElementById('robloxId');
+    const createdEl = document.getElementById('created');
+    const profileLink = document.getElementById('profileLink');
+    const avatarWrap = document.getElementById('avatarWrap');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    function showError(msg){
+      errorEl.style.display='block';
+      errorEl.textContent = '⚠️ ' + msg;
+      output.style.display='none';
+      statusEl.textContent = '';
+    }
+    function clearError(){ errorEl.style.display='none'; errorEl.textContent=''; }
+
+    async function handleCheck(){
+      const username = usernameInput.value.trim();
+      clearError();
+      if(!username){ showError('Masukkan username Roblox.'); return; }
+
+      checkBtn.disabled = true; statusEl.textContent = 'Mengecek...';
+
+      try{
+        const res = await fetch(`/api/cek?username=${encodeURIComponent(username)}`);
+        if(!res.ok){
+          const err = await res.json().catch(()=>({error:'Gagal'}));
+          throw new Error(err.error || 'Gagal memeriksa username.');
+        }
+        const data = await res.json();
+
+        const id = data.id;
+        const name = data.name || username;
+        const display = data.displayName || name;
+
+        output.style.display = 'flex';
+        displayName.textContent = display;
+        robloxId.textContent = `(ID: ${id})`;
+        createdEl.textContent = 'Bergabung: ' + (new Date(data.created).toLocaleString());
+        profileLink.href = data.profileUrl;
+        profileLink.textContent = data.profileUrl;
+
+        avatarWrap.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = data.avatarUrl;
+        img.alt = 'Avatar Roblox';
+        img.style.maxWidth = '100%';
+        img.style.display = 'block';
+        avatarWrap.appendChild(img);
+
+        downloadBtn.onclick = () => {
+          const a = document.createElement('a');
+          a.href = data.avatarUrl;
+          a.download = `${name}_avatar.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        };
+
+        statusEl.textContent = 'Sukses — hasil ditampilkan di bawah.';
+      }catch(err){
+        console.error(err);
+        if(err.message && err.message.includes('404')) showError('Username tidak ditemukan.');
+        else showError('Gagal memeriksa username.');
+      } finally{
+        checkBtn.disabled = false;
+      }
+    }
+
+    checkBtn.addEventListener('click', handleCheck);
+    usernameInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') handleCheck(); });
+  </script>
+</body>
+                                     </html>
+                                     
